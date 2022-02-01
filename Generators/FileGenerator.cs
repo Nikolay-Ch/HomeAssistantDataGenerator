@@ -6,11 +6,6 @@ using System.Linq;
 
 namespace HomeAssistantDataGenerator.Generators
 {
-    public interface IDataGenerator
-    {
-        bool GetValue(DateTime datetIme, out object val);
-    }
-
     public class DataValue<T>
     {
         public DateTime DateTime { get; set; }

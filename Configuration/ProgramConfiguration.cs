@@ -4,10 +4,8 @@ namespace HomeAssistantDataGenerator.Configuration
 {
     public enum GeneratorType
     {
-        Temperature,
-        Voltage,
-        Pressure,
-        File
+        File,
+        Wave
     }
 
     public enum ValuesType
@@ -22,19 +20,23 @@ namespace HomeAssistantDataGenerator.Configuration
     {
         public GeneratorType GeneratorType { get; set; }
 
-        public double MinValue { get; set; }
-        public double MaxValue { get; set; }
-
-        public double RateOfChange { get; set; }
-        public double ValuesShift { get; set; }
-
-        public double VeluesShiftChangeRate { get; set; }
-
-        public int ValuesInMinute { get; set; }
-
         public ValuesType ValuesType { get; set; }
 
         public string FileName { get; set; }
+
+        public double Frequency { get; set; }
+
+        public double Amplitude { get; set; }
+
+        public double VerticalShift { get; set; }
+
+        public double HorizontalShift { get; set; }
+
+        public int ValuesInMinute { get; set; }
+
+        public double ScatterValues { get; set; }
+
+        public int DigitsAfterPoint { get; set; }
     }
 
     public class VirtualDevice

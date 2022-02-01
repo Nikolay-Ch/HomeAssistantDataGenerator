@@ -49,21 +49,17 @@ namespace HomeAssistantDataGenerator
         {
             switch (presetGenerator.GeneratorType)
             {
-                case GeneratorType.Temperature:
-                    return null;
-                    break;
-                case GeneratorType.Voltage:
-                    return null;
-                    break;
-                case GeneratorType.Pressure:
-                    return null;
-                    break;
                 case GeneratorType.File:
-                    var gen = typeof(FileGenerator<>);
-                    Type[] typeArgs = { GetValuesType(presetGenerator.ValuesType) };
-                    var makeme = gen.MakeGenericType(typeArgs);
-                    return (IDataGenerator)Activator.CreateInstance(makeme, presetGenerator);
-                default:return null;
+                    var gen1 = typeof(FileGenerator<>);
+                    Type[] typeArgs1 = { GetValuesType(presetGenerator.ValuesType) };
+                    var makeme1 = gen1.MakeGenericType(typeArgs1);
+                    return (IDataGenerator)Activator.CreateInstance(makeme1, presetGenerator);
+                case GeneratorType.Wave:
+                    var gen2 = typeof(WaveGenerator<>);
+                    Type[] typeArgs2 = { GetValuesType(presetGenerator.ValuesType) };
+                    var makeme2 = gen2.MakeGenericType(typeArgs2);
+                    return (IDataGenerator)Activator.CreateInstance(makeme2, presetGenerator);
+                default: return null;
 
             }
         }
