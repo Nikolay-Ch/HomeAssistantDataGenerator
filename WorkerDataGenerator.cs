@@ -45,7 +45,7 @@ namespace HomeAssistantDataGenerator
             MqttClient = new MqttFactory().CreateManagedMqttClient();
         }
 
-        private IDataGenerator GeneratorFactory(PresetGenerator presetGenerator)
+        private static IDataGenerator GeneratorFactory(PresetGenerator presetGenerator)
         {
             switch (presetGenerator.GeneratorType)
             {
@@ -64,13 +64,12 @@ namespace HomeAssistantDataGenerator
             }
         }
 
-        private Type GetValuesType(ValuesType valuesType) =>
+        private static Type GetValuesType(ValuesType valuesType) =>
             valuesType switch
             {
                 ValuesType.Integer => typeof(Int32),
                 ValuesType.Double => typeof(Double),
                 ValuesType.String => typeof(String),
-                ValuesType.Boolean => typeof(Boolean),
                 _ => throw new ArgumentException($"Invalud type! {valuesType}"),
             };
 
@@ -91,15 +90,15 @@ namespace HomeAssistantDataGenerator
 
                 CreateGeneratorTasks(stoppingToken);
 
-                await Task.WhenAll(task);
+                await task;
 
                 // send device configuration with retain flag
                 await SendDeviceConfiguration();
-                Logger.LogInformation($"Sent devices configuration at: {DateTimeOffset.Now}");
+                Logger.LogInformation("Sent devices configuration at: {time}", DateTimeOffset.Now);
 
                 //await PostSendConfigurationAsync(stoppingToken);
 
-                Logger.LogInformation($"Running at: {DateTimeOffset.Now}");
+                Logger.LogInformation("Running at: {time}", DateTimeOffset.Now);
 
                 try
                 {
@@ -111,17 +110,17 @@ namespace HomeAssistantDataGenerator
                 }
                 catch (TaskCanceledException) { }
 
-                Logger.LogInformation($"Stopping at: {DateTimeOffset.Now}");
+                Logger.LogInformation("Stopping at: {time}", DateTimeOffset.Now);
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, $"Error at {DateTimeOffset.Now}");
+                Logger.LogError(ex, "Error at {time}", DateTimeOffset.Now);
             }
         }
 
         private async Task ConnectToMqtt(CancellationToken stoppingToken)
         {
-            Logger.LogInformation("Creating MqttClient at: {time}. Uri:{1}", DateTimeOffset.Now, MqttConfiguration.MqttUri);
+            Logger.LogInformation("Creating MqttClient at: {time}. Uri:{mqttUri}", DateTimeOffset.Now, MqttConfiguration.MqttUri);
 
             var messageBuilder = new MqttClientOptionsBuilder()
                 .WithClientId(MqttConfiguration.ClientId.Replace("-", "").Replace(" ", ""))
@@ -138,7 +137,7 @@ namespace HomeAssistantDataGenerator
                 .WithClientOptions(options)
                 .Build();
 
-            MqttClient.StartAsync(managedOptions).Wait(stoppingToken);
+            await MqttClient.StartAsync(managedOptions);
 
             // wait for connection
             while (!MqttClient.IsConnected && !stoppingToken.IsCancellationRequested)
@@ -162,27 +161,27 @@ namespace HomeAssistantDataGenerator
                     Identifiers = new List<string> { virtualDevice.DeviceDescription.Identifier }
                 };
 
-                ComponentList.Add(
-                    new SensorFactory()
-                        .CreateSensor(
-                            GetDeviceClassDescriptionValue(virtualDevice.DeviceDescription.DeviceType), device));
+                var deviceDescription = GetDeviceClassDescriptionValue(virtualDevice.DeviceDescription.DeviceType);
+                var componentFactory = deviceDescription.ComponentFactory;
+                var sensorDescription = componentFactory.CreateSensorDescription();
+                sensorDescription.DeviceClassDescription = deviceDescription;
+                sensorDescription.Device = device;
+                ComponentList.Add(componentFactory.CreateComponent(sensorDescription));
             }
         }
 
-        public DeviceClassDescription GetDeviceClassDescriptionValue(string deviceClass)
-        {
-            switch(deviceClass)
+        protected static DeviceClassDescription GetDeviceClassDescriptionValue(string deviceClass) =>
+            deviceClass switch
             {
-                case "Temperature": return DeviceClassDescription.Temperature;
-                case "Voltage": return DeviceClassDescription.Voltage;
-                case "PressureHpa": return DeviceClassDescription.PressureHpa;
-                case "Current": return DeviceClassDescription.Current;
-                case "Frequency": return DeviceClassDescription.Frequency;
-                case "Humidity": return DeviceClassDescription.Humidity;
-            }
-
-            return DeviceClassDescription.None;
-        }
+                "Temperature" => DeviceClassDescription.Temperature,
+                "Voltage" => DeviceClassDescription.Voltage,
+                "PressureHpa" => DeviceClassDescription.PressureHpa,
+                "Current" => DeviceClassDescription.Current,
+                "FrequencyHz" => DeviceClassDescription.FrequencyHz,
+                "Humidity" => DeviceClassDescription.Humidity,
+                "Plug" => DeviceClassDescription.Plug,
+                _ => DeviceClassDescription.None,
+            };
 
         public void CreateGeneratorTasks(CancellationToken cancellationToken)
         {
@@ -200,26 +199,44 @@ namespace HomeAssistantDataGenerator
 
                     while (!ct.IsCancellationRequested)
                     {
-                        if (generator.GetValue(DateTime.Now, out var value))
+                        try
                         {
-                            var payload = JObject.FromObject(new
+                            if (generator.GetValue(DateTime.Now, out var value))
                             {
-                                Id = component.Device.Identifiers[0],
-                                name = $"{component.Device.Identifiers[0]}"
-                            });
+                                object payload = "";
 
-                            payload.Add(new JProperty(component.DeviceClassDescription.ValueName, value.ToString()));
+                                /*if (component.DeviceClassDescription.ComponentFactory is BinarySensorFactory)
+                                {
+                                    payload = value.ToString();
+                                }
+                                else*/
+                                {
+                                    var payloadJObj = JObject.FromObject(new
+                                    {
+                                        Id = component.Device.Identifiers[0],
+                                        name = $"{component.Device.Identifiers[0]}"
+                                    });
 
-                            // send message
-                            var t = MqttClient.PublishAsync(
-                                component.StateTopic
-                                    .Replace("+/+", $"{MqttConfiguration.MqttHomeDeviceTopic}/{ProgramConfiguration.ServiceName}"),
-                                payload.ToString(),
-                                MqttConfiguration.MqttQosLevel);
+                                    payloadJObj.Add(new JProperty(component.DeviceClassDescription.ValueName, value.ToString()));
 
-                            Task.WaitAll(t);
+                                    payload = payloadJObj;
+                                }
 
-                            Logger.LogInformation($"WorkerLinuxSensors send message: {payload} at {DateTimeOffset.Now}");
+                                // send message
+                                var t = MqttClient.PublishAsync(
+                                    component.StateTopic
+                                        .Replace("+/+", $"{MqttConfiguration.MqttHomeDeviceTopic}/{ProgramConfiguration.ServiceName}"),
+                                    payload.ToString(),
+                                    MqttConfiguration.MqttQosLevel);
+
+                                t.Wait();
+
+                                Logger.LogInformation("WorkerDataGenerator send message: '{payload}' at {time}", payload, DateTimeOffset.Now);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.LogError(e, "WorkerDataGenerator send message error at {time}", DateTimeOffset.Now);
                         }
 
                         ct.WaitHandle.WaitOne(1000);
@@ -252,12 +269,12 @@ namespace HomeAssistantDataGenerator
                         MqttConfiguration.MqttQosLevel,
                         true);
 
-                    Logger.LogInformation($"Send configuration for component {component.UniqueId} at: {DateTimeOffset.Now}");
+                    Logger.LogInformation("Send configuration for component {uniqueId} at: {time}", component.UniqueId, DateTimeOffset.Now);
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, $"Error at {DateTimeOffset.Now}");
+                Logger.LogError(ex, "Error at {time}", DateTimeOffset.Now);
             }
         }
     }

@@ -42,7 +42,7 @@ namespace HomeAssistantDataGenerator.Generators
             var deltaTime = DataGeneratorValues
                 .ToList()
                 .Select(e => new { val = e, span = (e.DateTime.TimeOfDay - datetIme.TimeOfDay).Duration() })
-                .Where(e=>e.span.TotalSeconds <= 1)
+                .Where(e => e.span.TotalSeconds <= 1)
                 .OrderBy(e => e.span);
 
             if (deltaTime.Any())
