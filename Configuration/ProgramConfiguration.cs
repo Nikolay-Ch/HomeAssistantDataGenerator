@@ -5,7 +5,8 @@ namespace HomeAssistantDataGenerator.Configuration
     public enum GeneratorType
     {
         File,
-        Wave
+        Wave,
+        BinaryRandom
     }
 
     public enum ValuesType
@@ -37,6 +38,12 @@ namespace HomeAssistantDataGenerator.Configuration
         public double ScatterValues { get; set; }
 
         public int DigitsAfterPoint { get; set; }
+        
+        public double OnProbability { get; set; }
+
+        public double OffProbability { get; set; }
+        
+        public int MinutesBetweenSwitching { get; set; }
     }
 
     public class VirtualDevice

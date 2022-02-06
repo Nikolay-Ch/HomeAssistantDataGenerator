@@ -59,6 +59,8 @@ namespace HomeAssistantDataGenerator
                     Type[] typeArgs2 = { GetValuesType(presetGenerator.ValuesType) };
                     var makeme2 = gen2.MakeGenericType(typeArgs2);
                     return (IDataGenerator)Activator.CreateInstance(makeme2, presetGenerator);
+                case GeneratorType.BinaryRandom:
+                    return new BinaryRandomGenerator(presetGenerator);
                 default: return null;
 
             }
