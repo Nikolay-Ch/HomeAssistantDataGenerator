@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using HomeAssistantDataGenerator.Configuration;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 
 namespace HassSensorConfiguration
@@ -25,5 +26,7 @@ namespace HassSensorConfiguration
 
         [JsonProperty("via_device", NullValueHandling = NullValueHandling.Ignore)]
         public string ViaDevice { get; init; }
+
+        public DataFormat DataFormat { get; init; }
     }
 }

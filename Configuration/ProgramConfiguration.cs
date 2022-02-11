@@ -17,6 +17,16 @@ namespace HomeAssistantDataGenerator.Configuration
         Boolean
     }
 
+    public enum DataFormat
+    {
+        Correct = 0,
+        Invalid1,
+        Invalid2,
+        Invalid3,
+        Invalid4,
+        Invalid5
+    }
+
     public class PresetGenerator
     {
         public GeneratorType GeneratorType { get; set; }
@@ -59,6 +69,7 @@ namespace HomeAssistantDataGenerator.Configuration
         public string Manufacturer { get; set; }
         public string Identifier { get; set; }
         public string DeviceType { get; set; }
+        public DataFormat DataFormat { get;set; }
     }
 
     public class ProgramConfiguration

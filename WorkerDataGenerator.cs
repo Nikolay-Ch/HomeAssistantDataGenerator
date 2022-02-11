@@ -160,7 +160,8 @@ namespace HomeAssistantDataGenerator
                     Name = virtualDevice.DeviceDescription.Name,
                     Model = virtualDevice.DeviceDescription.Model,
                     Manufacturer = virtualDevice.DeviceDescription.Manufacturer,
-                    Identifiers = new List<string> { virtualDevice.DeviceDescription.Identifier }
+                    Identifiers = new List<string> { virtualDevice.DeviceDescription.Identifier },
+                    DataFormat = virtualDevice.DeviceDescription.DataFormat
                 };
 
                 var deviceDescription = GetDeviceClassDescriptionValue(virtualDevice.DeviceDescription.DeviceType);
@@ -206,31 +207,72 @@ namespace HomeAssistantDataGenerator
                             if (generator.GetValue(DateTime.Now, out var value))
                             {
                                 object payload = "";
+                                string topic = "";
 
-                                /*if (component.DeviceClassDescription.ComponentFactory is BinarySensorFactory)
+                                switch (component.Device.DataFormat)
                                 {
-                                    payload = value.ToString();
-                                }
-                                else*/
-                                {
-                                    var payloadJObj = JObject.FromObject(new
-                                    {
-                                        Id = component.Device.Identifiers[0],
-                                        name = $"{component.Device.Identifiers[0]}"
-                                    });
+                                    case DataFormat.Correct:
+                                        var payloadJObj1 = JObject.FromObject(new
+                                        {
+                                            Id = component.Device.Identifiers[0],
+                                            name = $"{component.Device.Identifiers[0]}"
+                                        });
 
-                                    payloadJObj.Add(new JProperty(component.DeviceClassDescription.ValueName, value.ToString()));
+                                        payloadJObj1.Add(new JProperty(component.DeviceClassDescription.ValueName, value.ToString()));
 
-                                    payload = payloadJObj;
+                                        payload = payloadJObj1;
+
+                                        topic = component.StateTopic.Replace("+/+", $"{MqttConfiguration.MqttHomeDeviceTopic}/{ProgramConfiguration.ServiceName}");
+
+                                        break;
+
+                                    case DataFormat.Invalid1: // Other topic and custom value
+                                        var payloadJObj2 = JObject.FromObject(new
+                                        {
+                                            Sensor = component.Device.Identifiers[0]
+                                        });
+
+                                        payloadJObj2.Add("value", value.ToString());
+                                        payload = payloadJObj2;
+
+                                        topic = $"Device{component.Device.Identifiers[0]}";
+
+                                        break;
+
+                                    case DataFormat.Invalid2: // binary
+                                        if (value is double @double) // integer, last two digits - after comma
+                                            payload = ((int)Math.Truncate(@double * 100)).ToString("X");
+
+                                        else if (value is int @int)
+                                            payload = @int.ToString("X");
+
+                                        else if (value is bool boolean)
+                                            payload = boolean ? 1 : 0;
+
+                                        else throw new ArgumentException("Invalid Argument", nameof(DataFormat));
+
+                                        topic = $"Binary-{component.Device.Identifiers[0]}-Sensor";
+
+                                        break;
+                                    case DataFormat.Invalid3: // xml
+                                        payload = $"<sensor><data><name>{component.DeviceClassDescription.ValueName}</name><value>{value}</value></data>";
+                                        topic = $"XmlSensor_{component.Device.Identifiers[0]}";
+
+                                        break;
+                                    case DataFormat.Invalid4: // csv
+                                        payload = $"{component.DeviceClassDescription.ValueName};{value}";
+                                        topic = $"CSV-{component.Device.Identifiers[0]}";
+
+                                        break;
+                                    case DataFormat.Invalid5: //simple
+                                        payload = value.ToString();
+                                        topic = $"Sensor{component.Device.Identifiers[0]}";
+
+                                        break;
                                 }
 
                                 // send message
-                                var t = MqttClient.PublishAsync(
-                                    component.StateTopic
-                                        .Replace("+/+", $"{MqttConfiguration.MqttHomeDeviceTopic}/{ProgramConfiguration.ServiceName}"),
-                                    payload.ToString(),
-                                    MqttConfiguration.MqttQosLevel);
-
+                                var t = MqttClient.PublishAsync(topic, payload.ToString(), MqttConfiguration.MqttQosLevel);
                                 t.Wait();
 
                                 Logger.LogInformation("WorkerDataGenerator send message: '{payload}' at {time}", payload, DateTimeOffset.Now);
@@ -262,7 +304,7 @@ namespace HomeAssistantDataGenerator
         {
             try
             {
-                foreach (var component in ComponentList)
+                foreach (var component in ComponentList.Where(e => e.Device.DataFormat == DataFormat.Correct))
                 {
                     await MqttClient.PublishAsync(
                         string.Format(MqttConfiguration.ConfigurationTopic,
