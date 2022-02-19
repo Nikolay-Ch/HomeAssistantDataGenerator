@@ -27,6 +27,7 @@ namespace HassSensorConfiguration
         [JsonProperty("via_device", NullValueHandling = NullValueHandling.Ignore)]
         public string ViaDevice { get; init; }
 
+        [JsonIgnore]
         public DataFormat DataFormat { get; init; }
     }
 }
